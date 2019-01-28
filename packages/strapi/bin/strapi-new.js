@@ -42,7 +42,8 @@ module.exports = function (name, cliArguments) {
     generatorType: 'new',
     name,
     strapiPackageJSON: packageJSON,
-    developerMode
+    developerMode,
+    debug: cliArguments.debug !== undefined
   };
 
   const dbArguments = ['dbclient', 'dbhost', 'dbport', 'dbname', 'dbusername', 'dbpassword'];
@@ -54,10 +55,13 @@ module.exports = function (name, cliArguments) {
       return process.exit(1);
     }
 
+    scope.dbforce = cliArguments.dbforce !== undefined;
+
     scope.database = {
       settings: {
         client: cliArguments.dbclient,
         host: cliArguments.dbhost,
+        srv: cliArguments.dbsrv,
         port: cliArguments.dbport,
         database: cliArguments.dbname,
         username: cliArguments.dbusername,

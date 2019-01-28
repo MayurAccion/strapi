@@ -53,14 +53,17 @@ program
 program
   .command('new')
   .option('-d, --dev', 'Development mode')
+  .option('--debug', 'Display database connection error')
   .option('--dbclient <dbclient>', 'Database client')
   .option('--dbhost <dbhost>', 'Database host')
+  .option('--dbsrv <dbsrv>', 'Database srv')
   .option('--dbport <dbport>', 'Database port')
   .option('--dbname <dbname>', 'Database name')
   .option('--dbusername <dbusername>', 'Database username')
   .option('--dbpassword <dbpassword>', 'Database password')
   .option('--dbssl <dbssl>', 'Database SSL')
   .option('--dbauth <dbauth>', 'Authentication Database')
+  .option('--dbforce', 'Overwrite database content if any')
   .description('create a new application')
   .action(require('./strapi-new'));
 

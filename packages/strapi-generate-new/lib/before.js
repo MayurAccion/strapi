@@ -17,6 +17,7 @@ const {cyan} = require('chalk');
 const fs = require('fs-extra');
 const inquirer = require('inquirer');
 const shell = require('shelljs');
+const uuid = require('uuid/v4');
 
 // Logger.
 const { packageManager } = require('strapi-utils');
@@ -46,6 +47,7 @@ module.exports = (scope, cb) => {
   // Make changes to the rootPath where the Strapi project will be created.
   scope.rootPath = path.resolve(process.cwd(), scope.name || '');
   scope.tmpPath = path.resolve(os.tmpdir(), `strapi${ crypto.randomBytes(6).toString('hex') }`);
+  scope.uuid = uuid();
 
   // Ensure we aren't going to inadvertently delete any files.
   try {
@@ -190,7 +192,7 @@ module.exports = (scope, cb) => {
                   default: _.get(scope.database, 'authenticationDatabase', undefined)
                 },
                 {
-                  when: !hasDatabaseConfig && scope.client.database === 'mongo',
+                  when: !hasDatabaseConfig,
                   type: 'boolean',
                   name: 'ssl',
                   message: 'Enable SSL connection:',
@@ -203,13 +205,21 @@ module.exports = (scope, cb) => {
                 }
 
                 scope.database.settings.host = answers.host;
-                scope.database.settings.srv = _.toString(answers.srv) === 'true';
                 scope.database.settings.port = answers.port;
                 scope.database.settings.database = answers.database;
                 scope.database.settings.username = answers.username;
                 scope.database.settings.password = answers.password;
-                scope.database.options.authenticationDatabase = answers.authenticationDatabase;
-                scope.database.options.ssl = _.toString(answers.ssl) === 'true';
+                if (answers.srv) {
+                  scope.database.settings.srv =  _.toString(answers.srv) === 'true';
+                }
+                if (answers.authenticationDatabase) {
+                  scope.database.options.authenticationDatabase = answers.authenticationDatabase;
+                }
+                if (scope.client.database === 'mongo') {
+                  scope.database.options.ssl = _.toString(answers.ssl) === 'true';
+                } else {
+                  scope.database.settings.ssl = _.toString(answers.ssl) === 'true';
+                }
 
                 console.log();
                 console.log('⏳ Testing database connection...');
@@ -226,6 +236,7 @@ module.exports = (scope, cb) => {
             }
 
             let cmd = `${packageCmd} ${scope.client.connector}@${scope.strapiPackageJSON.version}`;
+            let linkNodeModulesCommand = `cd ${scope.tmpPath} && npm link ${scope.client.connector}`;
 
             if (scope.client.module) {
               cmd += ` ${scope.client.module}`;
@@ -233,6 +244,7 @@ module.exports = (scope, cb) => {
 
             if (scope.client.connector === 'strapi-hook-bookshelf') {
               cmd += ` strapi-hook-knex@${scope.strapiPackageJSON.version}`;
+              linkNodeModulesCommand += ` && npm link strapi-hook-knex`;
 
               scope.additionalsDependencies = ['strapi-hook-knex', 'knex'];
             }
@@ -248,7 +260,13 @@ module.exports = (scope, cb) => {
                 }
               }
 
-              resolve();
+              if (scope.developerMode) {
+                exec(linkNodeModulesCommand, () => {
+                  resolve();
+                });
+              } else {
+                resolve();
+              }
             });
           })
         ];
@@ -258,8 +276,8 @@ module.exports = (scope, cb) => {
             try {
               require(path.join(`${scope.tmpPath}`, '/node_modules/', `${scope.client.connector}/lib/utils/connectivity.js`))(scope, cb.success, connectionValidation);
             } catch(err) {
-              shell.rm('-r', scope.tmpPath);
               console.log(err);
+              shell.rm('-r', scope.tmpPath);
               cb.error();
             }
           });
